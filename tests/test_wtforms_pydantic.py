@@ -6,19 +6,13 @@ import pytest
 
 
 from wtforms_pydantic import wtforms_pydantic
+from pydantic import BaseModel
 
 
-@pytest.fixture
-def response():
-    """Sample pytest fixture.
+def test_base():
+    class Person(BaseModel):
+        name: str = "Klaus"
+        age: int = 0
 
-    See more at: http://doc.pytest.org/en/latest/fixture.html
-    """
-    # import requests
-    # return requests.get('https://github.com/audreyr/cookiecutter-pypackage')
-
-
-def test_content(response):
-    """Sample pytest test function with the pytest fixture as an argument."""
-    # from bs4 import BeautifulSoup
-    # assert 'GitHub' in BeautifulSoup(response.content).title.string
+    ff = wtforms_pydantic.model_fields(Person())
+    assert(ff == None)
