@@ -52,8 +52,6 @@ class Converter:
         for name, field in fields.items():
             wtf_type = cls.converters.get(field.outer_type_)
             if wtf_type is None:
-                import pdb
-                pdb.set_trace()
                 raise TypeError(
                     f'No converter found for `{field.type_}.`')
 
