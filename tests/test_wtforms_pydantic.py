@@ -4,7 +4,9 @@
 
 import pytest
 import wtforms.validators
+import wtforms.fields
 import typing
+import hamcrest
 from wtforms_pydantic.converter import model_fields, Converter
 from pydantic import BaseModel, Field
 
@@ -19,8 +21,8 @@ class Person(BaseModel):
     age: int = Field(default_factory=factory)
 
 
-class Group(BaseModel):
-    members: typing.Optional[typing.List]
+class UserInfo(BaseModel):
+    email: typing.Optional[str]
 
 
 def test_fields():
@@ -55,73 +57,75 @@ def test_fields():
 def test_field_options():
 
     options = Converter.field_options(Person.__fields__['name'])
-    validators = options.pop('validators')
-    assert options == {
-        'default': 'Klaus',
-        'description': '',
-        'filters': [],
-        'label': 'name'
-        }
-    assert len(validators) == 1
-    assert validators[0].__class__ == wtforms.validators.Optional
+    hamcrest.assert_that(options, hamcrest.has_entries({
+            'default': 'Klaus',
+            'description': '',
+            'filters': [],
+            'validators': hamcrest.contains_exactly(
+                hamcrest.instance_of(wtforms.validators.Optional)),
+            'label': 'name'
+        })
+    )
 
     options = Converter.field_options(
         Person.__fields__['name'], required=True)
-    validators = options.pop('validators')
-    assert options == {
-        'default': 'Klaus',
-        'description': '',
-        'filters': [],
-        'label': 'name'
-        }
-    assert len(validators) == 1
-    assert validators[0].__class__ == wtforms.validators.DataRequired
+    hamcrest.assert_that(options, hamcrest.has_entries({
+            'default': 'Klaus',
+            'description': '',
+            'filters': [],
+            'validators': hamcrest.contains_exactly(
+                hamcrest.instance_of(wtforms.validators.DataRequired)),
+            'label': 'name'
+        })
+    )
 
     options = Converter.field_options(
         Person.__fields__['name'], label="This is a name")
-    validators = options.pop('validators')
-    assert options == {
-        'default': 'Klaus',
-        'description': '',
-        'filters': [],
-        'label': 'This is a name'
-        }
+    hamcrest.assert_that(options, hamcrest.has_entries({
+            'default': 'Klaus',
+            'description': '',
+            'filters': [],
+            'validators': hamcrest.contains_exactly(
+                hamcrest.instance_of(wtforms.validators.Optional)),
+            'label': 'This is a name'
+        })
+    )
 
     options = Converter.field_options(Person.__fields__['identifier'])
-    validators = options.pop('validators')
-    assert options == {
-        'default': None,
-        'description': '',
-        'filters': [],
-        'label': 'identifier'
-        }
-    assert len(validators) == 1
-    assert validators[0].__class__ == wtforms.validators.DataRequired
+    hamcrest.assert_that(options, hamcrest.has_entries({
+            'default': None,
+            'description': '',
+            'filters': [],
+            'validators': hamcrest.contains_exactly(
+                hamcrest.instance_of(wtforms.validators.DataRequired)),
+            'label': 'identifier'
+        })
+    )
 
 
 def test_complex_field_options():
 
     options = Converter.field_options(Person.__fields__['age'])
-    validators = options.pop('validators')
-    assert options == {
-        'default': factory,
-        'description': '',
-        'filters': [],
-        'label': 'age'
-        }
-    assert len(validators) == 1
-    assert validators[0].__class__ == wtforms.validators.Optional
+    hamcrest.assert_that(options, hamcrest.has_entries({
+            'default': factory,
+            'description': '',
+            'filters': [],
+            'validators': hamcrest.contains_exactly(
+                hamcrest.instance_of(wtforms.validators.Optional)),
+            'label': 'age'
+        })
+    )
 
 
 def test_typing_rich_field_options():
 
-    options = Converter.field_options(Group.__fields__['members'])
-    validators = options.pop('validators')
-    assert options == {
-        'default': None,
-        'description': '',
-        'filters': [],
-        'label': 'members'
-        }
-    assert len(validators) == 1
-    assert validators[0].__class__ == wtforms.validators.Optional
+    options = Converter.field_options(UserInfo.__fields__['email'])
+    hamcrest.assert_that(options, hamcrest.has_entries({
+            'default': None,
+            'description': '',
+            'filters': [],
+            'validators': hamcrest.contains_exactly(
+                hamcrest.instance_of(wtforms.validators.Optional)),
+            'label': 'email'
+        })
+    )

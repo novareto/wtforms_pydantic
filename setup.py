@@ -11,7 +11,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = ['wtforms', 'pydantic']
-test_requires = ['pytest>=3', ]
+test_requires = ['pytest>=3', 'PyHamcrest']
 
 setup(
     author="Christian Klinger",
