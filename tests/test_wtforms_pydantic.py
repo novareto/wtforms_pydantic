@@ -4,14 +4,23 @@
 
 import pytest
 import wtforms.validators
+import typing
 from wtforms_pydantic.converter import model_fields, Converter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+def factory():
+    return 18
 
 
 class Person(BaseModel):
     identifier: str
     name: str = "Klaus"
-    age: int = 0
+    age: int = Field(default_factory=factory)
+
+
+class Group(BaseModel):
+    members: typing.Optional[typing.List]
 
 
 def test_fields():
@@ -88,3 +97,31 @@ def test_field_options():
         }
     assert len(validators) == 1
     assert validators[0].__class__ == wtforms.validators.DataRequired
+
+
+def test_complex_field_options():
+
+    options = Converter.field_options(Person.__fields__['age'])
+    validators = options.pop('validators')
+    assert options == {
+        'default': factory,
+        'description': '',
+        'filters': [],
+        'label': 'age'
+        }
+    assert len(validators) == 1
+    assert validators[0].__class__ == wtforms.validators.Optional
+
+
+def test_typing_rich_field_options():
+
+    options = Converter.field_options(Group.__fields__['members'])
+    validators = options.pop('validators')
+    assert options == {
+        'default': None,
+        'description': '',
+        'filters': [],
+        'label': 'members'
+        }
+    assert len(validators) == 1
+    assert validators[0].__class__ == wtforms.validators.Optional

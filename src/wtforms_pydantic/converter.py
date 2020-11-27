@@ -29,7 +29,7 @@ class Converter:
             "label": field.field_info.title or field.name,
             "validators": [],
             "filters": [],
-            "default": field.default,
+            "default": field.default or field.field_info.default_factory,
             'description': field.field_info.description or ''
         }
         required = override.pop('required', field.required)
