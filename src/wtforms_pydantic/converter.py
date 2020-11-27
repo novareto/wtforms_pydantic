@@ -23,6 +23,26 @@ class Converter:
         pydantic.SecretStr: wtforms.fields.PasswordField
     }
 
+    @staticmethod
+    def field_options(field: dict):
+        options = {
+            "label": field.field_info.title or field.name,
+            "validators": [],
+            "filters": [],
+            "default": field.default,
+            'description': field.field_info.description or ''
+        }
+        if field.required:
+            options["validators"].append(
+                wtforms.validators.DataRequired()
+            )
+        else:
+            options["validators"].append(
+                wtforms.validators.Optional()
+            )
+
+        return options
+
     @classmethod
     def convert(cls, fields: dict, **overrides):
 
@@ -33,25 +53,7 @@ class Converter:
                 raise TypeError(
                     f'No converter found for `{field.type_}.`')
 
-            options = {
-                "label": field.field_info.title or name,
-                "validators": [],
-                "filters": [],
-                "default": field.default,
-                'description': field.field_info.description or ''
-            }
-            if field.required:
-                options["validators"].append(
-                    wtforms.validators.Required()
-                )
-            else:
-                options["validators"].append(
-                    wtforms.validators.Optional()
-                )
-                if field.nullable:
-                    # do something.
-                    pass
-
+            options = cls.field_options(field)
             if name in overrides:
                 options.update(overrides[name])
             wtfields[name] = wtf_type(**options)
@@ -60,8 +62,8 @@ class Converter:
 
 
 def model_fields(model, only=None, exclude=None) -> dict:
-    if not bool(only) ^ bool(exclude):
-        raise RuntimeError(
+    if (only or exclude) and not bool(only) ^ bool(exclude):
+        raise AssertionError(
             'You need to specify either `only` or `exclude`')
 
     if only:
@@ -69,8 +71,9 @@ def model_fields(model, only=None, exclude=None) -> dict:
             name: field for name, field in model.__fields__.items()
             if name in only
         }
-
-    return {
-        name: field for name, field in model.__fields__.items()
-        if name not in exclude
-    }
+    if exclude:
+        return {
+            name: field for name, field in model.__fields__.items()
+            if name not in exclude
+        }
+    return model.__fields__

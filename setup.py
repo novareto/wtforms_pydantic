@@ -10,11 +10,8 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['wtforms', 'pydantic' ]
-
-setup_requirements = ['pytest-runner', ]
-
-test_requirements = ['pytest>=3', ]
+requirements = ['wtforms', 'pydantic']
+test_requires = ['pytest>=3', ]
 
 setup(
     author="Christian Klinger",
@@ -38,10 +35,11 @@ setup(
     include_package_data=True,
     keywords='wtforms_pydantic',
     name='wtforms_pydantic',
-    packages=find_packages(include=['wtforms_pydantic', 'wtforms_pydantic.*']),
-    setup_requires=setup_requirements,
-    test_suite='tests',
-    tests_require=test_requirements,
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
+    extras_require={
+        'test': test_requires,
+    },
     url='https://github.com/goschtl/wtforms_pydantic',
     version='0.1.0',
     zip_safe=False,
