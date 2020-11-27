@@ -1,7 +1,5 @@
 import datetime
 import decimal
-from collections import namedtuple
-
 import pydantic
 import wtforms.fields
 import wtforms.fields.html5
