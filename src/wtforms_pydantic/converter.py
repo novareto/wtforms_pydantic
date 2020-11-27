@@ -24,7 +24,7 @@ class Converter:
     }
 
     @staticmethod
-    def field_options(field: dict):
+    def field_options(field: dict, **override):
         options = {
             "label": field.field_info.title or field.name,
             "validators": [],
@@ -32,7 +32,8 @@ class Converter:
             "default": field.default,
             'description': field.field_info.description or ''
         }
-        if field.required:
+        required = override.pop('required', field.required)
+        if required:
             options["validators"].append(
                 wtforms.validators.DataRequired()
             )
@@ -40,7 +41,7 @@ class Converter:
             options["validators"].append(
                 wtforms.validators.Optional()
             )
-
+        options.update(override)
         return options
 
     @classmethod
@@ -53,9 +54,7 @@ class Converter:
                 raise TypeError(
                     f'No converter found for `{field.type_}.`')
 
-            options = cls.field_options(field)
-            if name in overrides:
-                options.update(overrides[name])
+            options = cls.field_options(field, **overrides.get(name, {}))
             wtfields[name] = wtf_type(**options)
 
         return wtfields
