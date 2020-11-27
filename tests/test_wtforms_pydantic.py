@@ -68,6 +68,16 @@ def test_field_options():
     assert len(validators) == 1
     assert validators[0].__class__ == wtforms.validators.DataRequired
 
+    options = Converter.field_options(
+        Person.__fields__['name'], label="This is a name")
+    validators = options.pop('validators')
+    assert options == {
+        'default': 'Klaus',
+        'description': '',
+        'filters': [],
+        'label': 'This is a name'
+        }
+
     options = Converter.field_options(Person.__fields__['identifier'])
     validators = options.pop('validators')
     assert options == {
