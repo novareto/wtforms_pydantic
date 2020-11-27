@@ -20,7 +20,8 @@ class Converter:
         datetime.date: wtforms.fields.html5.DateField,
         datetime.datetime: wtforms.fields.html5.DateTimeField,
         datetime.time: wtforms.fields.html5.TimeField,
-        pydantic.SecretStr: wtforms.fields.PasswordField
+        pydantic.SecretStr: wtforms.fields.PasswordField,
+        pydantic.networks.EmailStr: wtforms.fields.html5.EmailField
     }
 
     @staticmethod
