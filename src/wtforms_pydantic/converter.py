@@ -1,29 +1,20 @@
+import enum
 import datetime
 import decimal
 import pydantic
 import wtforms.fields
 import wtforms.fields.html5
 import wtforms.validators
+from xml.sax.saxutils import escape
 
 
-class Converter:
-    """convert pydantic fields into wtforms fields.
-    """
+class Field:
 
-    converters = {
-        str: wtforms.fields.StringField,
-        int: wtforms.fields.IntegerField,
-        float: wtforms.fields.FloatField,
-        decimal.Decimal: wtforms.fields.DecimalField,
-        datetime.date: wtforms.fields.html5.DateField,
-        datetime.datetime: wtforms.fields.html5.DateTimeField,
-        datetime.time: wtforms.fields.html5.TimeField,
-        pydantic.SecretStr: wtforms.fields.PasswordField,
-        pydantic.networks.EmailStr: wtforms.fields.html5.EmailField
-    }
+    def __init__(self, wtforms_field):
+        self.wtforms_field = wtforms_field
 
     @staticmethod
-    def field_options(field: dict, **override):
+    def field_options(field, **override):
         options = {
             "label": field.field_info.title or field.name,
             "validators": [],
@@ -43,19 +34,71 @@ class Converter:
         options.update(override)
         return options
 
+    def __call__(self, field, **override):
+        options = self.field_options(field, **override)
+        return self.wtforms_field(**options)
+
+
+class EnumField(Field):
+
+    @staticmethod
+    def _escape(data):
+        return escape(data, entities={
+            "'": "&apos;",
+            "\"": "&quot;"
+        })
+
+    def __call__(self, field, **override):
+
+        enum = field.outer_type_
+
+        def coerce(name):
+            if isinstance(name, enum):
+                # already coerced to instance of this enum
+                return name
+            try:
+                return enum[name]
+            except KeyError:
+                raise ValueError(name)
+
+        options = self.field_options(field, **override)
+        options['choices'] = [(v.value, self._escape(v.value)) for v in enum]
+        options['coerce'] = coerce
+        return self.wtforms_field(**options)
+
+
+class Converter:
+    """convert pydantic fields into wtforms fields.
+    """
+
+    class_converters = {
+        str: Field(wtforms.fields.StringField),
+        int: Field(wtforms.fields.IntegerField),
+        float: Field(wtforms.fields.FloatField),
+        decimal.Decimal: Field(wtforms.fields.DecimalField),
+        datetime.date: Field(wtforms.fields.html5.DateField),
+        datetime.datetime: Field(wtforms.fields.html5.DateTimeField),
+        datetime.time: Field(wtforms.fields.html5.TimeField),
+        pydantic.SecretStr: Field(wtforms.fields.PasswordField),
+        pydantic.networks.EmailStr: Field(wtforms.fields.html5.EmailField),
+    }
+
+    type_converters = {
+        enum.EnumMeta: EnumField(wtforms.fields.SelectField)
+    }
+
     @classmethod
     def convert(cls, fields: dict, **overrides):
-
         wtfields = {}
         for name, field in fields.items():
-            wtf_type = cls.converters.get(field.outer_type_)
-            if wtf_type is None:
+            if wtf_field := cls.class_converters.get(field.outer_type_):
+                wtfields[name] = wtf_field(field, **overrides.get(name, {}))
+            elif wtf_field := cls.type_converters.get(
+                    type(field.outer_type_)):
+                wtfields[name] = wtf_field(field, **overrides.get(name, {}))
+            else:
                 raise TypeError(
-                    f'No converter found for `{field.type_}.`')
-
-            options = cls.field_options(field, **overrides.get(name, {}))
-            wtfields[name] = wtf_type(**options)
-
+                    f'{field} cannot be converted to a WTForms field')
         return wtfields
 
 

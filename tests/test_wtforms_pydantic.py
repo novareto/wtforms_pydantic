@@ -1,27 +1,27 @@
-#!/usr/bin/env python
+"""Tests for `wtforms_pydantic` package.
+"""
 
-"""Tests for `wtforms_pydantic` package."""
-
-import pytest
-import wtforms.validators
-import wtforms.fields
-import typing
 import hamcrest
-from wtforms_pydantic.converter import model_fields, Converter
-from pydantic import BaseModel, Field
+import pytest
+import pydantic
+import typing
+import wtforms.fields
+import wtforms.validators
+from wtforms_pydantic.converter import model_fields
+from wtforms_pydantic.converter import Converter, Field, EnumField
 
 
 def factory():
     return 18
 
 
-class Person(BaseModel):
+class Person(pydantic.BaseModel):
     identifier: str
     name: str = "Klaus"
-    age: int = Field(default_factory=factory)
+    age: int = pydantic.Field(default_factory=factory)
 
 
-class UserInfo(BaseModel):
+class UserInfo(pydantic.BaseModel):
     email: typing.Optional[str]
 
 
@@ -56,7 +56,7 @@ def test_fields():
 
 def test_field_options():
 
-    options = Converter.field_options(Person.__fields__['name'])
+    options = Field.field_options(Person.__fields__['name'])
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': 'Klaus',
             'description': '',
@@ -67,7 +67,7 @@ def test_field_options():
         })
     )
 
-    options = Converter.field_options(
+    options = Field.field_options(
         Person.__fields__['name'], required=True)
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': 'Klaus',
@@ -79,7 +79,7 @@ def test_field_options():
         })
     )
 
-    options = Converter.field_options(
+    options = Field.field_options(
         Person.__fields__['name'], label="This is a name")
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': 'Klaus',
@@ -91,7 +91,7 @@ def test_field_options():
         })
     )
 
-    options = Converter.field_options(Person.__fields__['identifier'])
+    options = Field.field_options(Person.__fields__['identifier'])
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': None,
             'description': '',
@@ -105,7 +105,7 @@ def test_field_options():
 
 def test_complex_field_options():
 
-    options = Converter.field_options(Person.__fields__['age'])
+    options = Field.field_options(Person.__fields__['age'])
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': factory,
             'description': '',
@@ -119,7 +119,7 @@ def test_complex_field_options():
 
 def test_typing_rich_field_options():
 
-    options = Converter.field_options(UserInfo.__fields__['email'])
+    options = Field.field_options(UserInfo.__fields__['email'])
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': None,
             'description': '',
