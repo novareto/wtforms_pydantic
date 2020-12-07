@@ -75,6 +75,7 @@ class Converter:
         str: Field(wtforms.fields.StringField),
         int: Field(wtforms.fields.IntegerField),
         float: Field(wtforms.fields.FloatField),
+        bool: Field(wtforms.fields.BooleanField),
         decimal.Decimal: Field(wtforms.fields.DecimalField),
         datetime.date: Field(wtforms.fields.html5.DateField),
         datetime.datetime: Field(wtforms.fields.html5.DateTimeField),
