@@ -15,14 +15,16 @@ from .converter import Converter, model_fields
 class Form(wtforms.form.BaseForm):
 
     @classmethod
-    def from_fields(cls, fields, **overrides):
-        return cls(Converter.convert(fields, **overrides))
+    def from_fields(cls, fields, enforce={}, **overrides):
+        return cls(Converter.convert(fields, enforce=enforce, **overrides))
 
     @classmethod
     def from_model(cls, model: pydantic.BaseModel,
-                   only=(), exclude=(), **overrides):
+                   only=(), exclude=(), enforce={}, **overrides):
         return cls(Converter.convert(
-            model_fields(model, only=only, exclude=exclude), **overrides
+            model_fields(model, only=only, exclude=exclude),
+            enforce=enforce,
+            **overrides
         ))
 
     def readonly(self, names):

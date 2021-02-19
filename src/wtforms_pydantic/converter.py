@@ -1,3 +1,5 @@
+from typing import Optional
+
 import enum
 import datetime
 import decimal
@@ -89,14 +91,16 @@ class Converter:
     }
 
     @classmethod
-    def convert(cls, fields: dict, **overrides):
+    def convert(cls, fields: dict, enforce: dict = {}, **opts):
         wtfields = {}
         for name, field in fields.items():
-            if wtf_field := cls.class_converters.get(field.outer_type_):
-                wtfields[name] = wtf_field(field, **overrides.get(name, {}))
+            if wtf_field := enforce.get(name):
+                wtfields[name] = wtf_field(field, **opts.get(name, {}))
+            elif wtf_field := cls.class_converters.get(field.outer_type_):
+                wtfields[name] = wtf_field(field, **opts.get(name, {}))
             elif wtf_field := cls.type_converters.get(
                     type(field.outer_type_)):
-                wtfields[name] = wtf_field(field, **overrides.get(name, {}))
+                wtfields[name] = wtf_field(field, **opts.get(name, {}))
             else:
                 raise TypeError(
                     f'{field} cannot be converted to a WTForms field')
