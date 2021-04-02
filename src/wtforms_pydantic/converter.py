@@ -1,6 +1,7 @@
-from typing import Optional
+from dataclasses import dataclass, asdict
+from typing import Optional, Sequence, Type, Any, Callable, Literal
+from enum import EnumMeta
 
-import enum
 import datetime
 import decimal
 import pydantic
@@ -8,24 +9,104 @@ import wtforms.fields
 import wtforms.fields.html5
 import wtforms.validators
 from xml.sax.saxutils import escape
+from wtforms_pydantic._fields import MultiCheckboxField
 
 
-class Field:
+def _escape(data):
+    return escape(data, entities={
+        "'": "&apos;",
+        "\"": "&quot;"
+    })
 
-    def __init__(self, wtforms_field):
-        self.wtforms_field = wtforms_field
 
-    @staticmethod
-    def field_options(field, **override):
-        options = {
-            "label": field.field_info.title or field.name,
-            "validators": [],
-            "filters": [],
-            "default": field.default or field.field_info.default_factory,
-            'description': field.field_info.description or ''
-        }
-        required = override.pop('required', field.required)
-        if required:
+def enum_choices(enum):
+
+    def coerce(name):
+        if isinstance(name, enum):
+            # already coerced to instance of this enum
+            return name
+        try:
+            return enum[name]
+        except KeyError:
+            raise ValueError(name)
+
+    choices = [(v.value, _escape(v.value)) for v in enum]
+    return choices, coerce
+
+
+needs_choices = {
+    EnumMeta: enum_choices,
+    Literal: None  # implement me
+}
+
+simple_converters = {
+    str: wtforms.fields.StringField,
+    int: wtforms.fields.IntegerField,
+    float: wtforms.fields.FloatField,
+    bool: wtforms.fields.BooleanField,
+    EnumMeta: wtforms.fields.SelectField,
+    decimal.Decimal: wtforms.fields.DecimalField,
+    datetime.date: wtforms.fields.html5.DateField,
+    datetime.datetime: wtforms.fields.html5.DateTimeField,
+    datetime.time: wtforms.fields.html5.TimeField,
+    pydantic.SecretStr: wtforms.fields.PasswordField,
+    pydantic.networks.EmailStr: wtforms.fields.html5.EmailField,
+}
+
+multiple_converters = {
+    EnumMeta: MultiCheckboxField
+}
+
+
+@dataclass
+class FieldOptions:
+    label: str
+    description: str
+    default: Any
+    validators: list
+
+
+@dataclass
+class FieldRepresentation:
+    type: Any
+    multiple: bool
+    options: FieldOptions
+    required: bool
+    field_factory: wtforms.fields.Field = None
+    choices_factory: Callable = None
+
+    def matching_key(self):
+        if type(self.type) is EnumMeta:
+            return EnumMeta
+        return self.type
+
+    @classmethod
+    def from_modelfield(cls, field, validators=None):
+        options = FieldOptions(
+            default=field.default or field.field_info.default_factory,
+            description=field.field_info.description or '',
+            label=field.field_info.title or field.name,
+            validators=validators or []
+        )
+        if field.is_complex():
+            if issubclass(field.outer_type_.__origin__, Sequence):
+                return cls(
+                    multiple=True,
+                    type=field.type_,
+                    required=field.required,
+                    options=options
+                )
+        return cls(
+            multiple=False,
+            type=field.outer_type_,
+            required=field.required,
+            options=options
+        )
+
+    def wtforms_cast(self):
+        key = self.matching_key()
+        options = asdict(self.options)
+        if self.required:
             options["validators"].append(
                 wtforms.validators.DataRequired()
             )
@@ -33,93 +114,32 @@ class Field:
             options["validators"].append(
                 wtforms.validators.Optional()
             )
-        options.update(override)
-        return options
+        if (choice_maker := needs_choices.get(key)) is not None:
+            options['choices'], options['coerce'] = choice_maker(self.type)
 
-    def __call__(self, field, **override):
-        options = self.field_options(field, **override)
-        return self.wtforms_field(**options)
-
-
-class EnumField(Field):
-
-    @staticmethod
-    def _escape(data):
-        return escape(data, entities={
-            "'": "&apos;",
-            "\"": "&quot;"
-        })
-
-    def __call__(self, field, **override):
-
-        enum = field.outer_type_
-
-        def coerce(name):
-            if isinstance(name, enum):
-                # already coerced to instance of this enum
-                return name
-            try:
-                return enum[name]
-            except KeyError:
-                raise ValueError(name)
-
-        options = self.field_options(field, **override)
-        options['choices'] = [(v.value, self._escape(v.value)) for v in enum]
-        options['coerce'] = coerce
-        return self.wtforms_field(**options)
-
-
-class Converter:
-    """convert pydantic fields into wtforms fields.
-    """
-
-    class_converters = {
-        str: Field(wtforms.fields.StringField),
-        int: Field(wtforms.fields.IntegerField),
-        float: Field(wtforms.fields.FloatField),
-        bool: Field(wtforms.fields.BooleanField),
-        decimal.Decimal: Field(wtforms.fields.DecimalField),
-        datetime.date: Field(wtforms.fields.html5.DateField),
-        datetime.datetime: Field(wtforms.fields.html5.DateTimeField),
-        datetime.time: Field(wtforms.fields.html5.TimeField),
-        pydantic.SecretStr: Field(wtforms.fields.PasswordField),
-        pydantic.networks.EmailStr: Field(wtforms.fields.html5.EmailField),
-    }
-
-    type_converters = {
-        enum.EnumMeta: EnumField(wtforms.fields.SelectField)
-    }
-
-    @classmethod
-    def convert(cls, fields: dict, enforce: dict = {}, **opts):
-        wtfields = {}
-        for name, field in fields.items():
-            if wtf_field := enforce.get(name):
-                wtfields[name] = wtf_field(field, **opts.get(name, {}))
-            elif wtf_field := cls.class_converters.get(field.outer_type_):
-                wtfields[name] = wtf_field(field, **opts.get(name, {}))
-            elif wtf_field := cls.type_converters.get(
-                    type(field.outer_type_)):
-                wtfields[name] = wtf_field(field, **opts.get(name, {}))
+        factory = self.field_factory
+        if factory is None:
+            if not self.multiple:
+                factory = simple_converters.get(key)
             else:
+                factory = multiple_converters.get(key)
+            if factory is None:
                 raise TypeError(
-                    f'{field} cannot be converted to a WTForms field')
-        return wtfields
+                    f'{self.type} cannot be converted to a WTForms field')
+
+        return factory(**options)
 
 
-def model_fields(model, only=None, exclude=None) -> dict:
-    if (only or exclude) and not bool(only) ^ bool(exclude):
-        raise AssertionError(
-            'You need to specify either `only` or `exclude`')
+def model_fields(model, include=None, exclude=None) -> dict:
+    if not include:
+        include = frozenset(model.__fields__.keys())
+    if not exclude:
+        exclude = set()
 
-    if only:
-        return {
-            name: field for name, field in model.__fields__.items()
-            if name in only
-        }
-    if exclude:
-        return {
-            name: field for name, field in model.__fields__.items()
-            if name not in exclude
-        }
-    return model.__fields__
+    return {
+        name: FieldRepresentation.from_modelfield(
+            field, validators=model.__validators__.get('name')
+        )
+        for name, field in model.__fields__.items()
+        if name in include and not name in exclude
+    }

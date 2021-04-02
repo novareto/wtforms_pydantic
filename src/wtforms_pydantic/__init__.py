@@ -9,23 +9,21 @@ import pydantic
 import wtforms.form
 from typing import Optional
 from wtforms_components import read_only
-from .converter import Converter, model_fields
+from .converter import model_fields
 
 
 class Form(wtforms.form.BaseForm):
 
     @classmethod
-    def from_fields(cls, fields, enforce={}, **overrides):
-        return cls(Converter.convert(fields, enforce=enforce, **overrides))
+    def from_fields(cls, fields):
+        fields = {
+            name: field.wtforms_cast() for name, field in fields.items()
+        }
+        return cls(fields)
 
     @classmethod
-    def from_model(cls, model: pydantic.BaseModel,
-                   only=(), exclude=(), enforce={}, **overrides):
-        return cls(Converter.convert(
-            model_fields(model, only=only, exclude=exclude),
-            enforce=enforce,
-            **overrides
-        ))
+    def from_model(cls, model: pydantic.BaseModel, **kwargs):
+        return cls.from_fields(model_fields(model, **kwargs))
 
     def readonly(self, names):
         if names is ...:
