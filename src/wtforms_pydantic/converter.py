@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 from typing import Optional, Iterable, Type, Any, Callable, Literal
-from enum import EnumMeta
+from enum import Enum, EnumMeta
 
 import datetime
 import decimal
@@ -51,27 +51,24 @@ class FieldValidator:
             raise wtforms.validators.ValidationError(str(error.exc))
 
 
-needs_choices = {
-    EnumMeta: enum_choices,
-    Literal: None  # implement me
-}
-
 simple_converters = {
     str: wtforms.fields.StringField,
     int: wtforms.fields.IntegerField,
     float: wtforms.fields.FloatField,
     bool: wtforms.fields.BooleanField,
-    EnumMeta: wtforms.fields.SelectField,
+    Enum: wtforms.fields.SelectField,
     decimal.Decimal: wtforms.fields.DecimalField,
     datetime.date: wtforms.fields.html5.DateField,
     datetime.datetime: wtforms.fields.html5.DateTimeField,
     datetime.time: wtforms.fields.html5.TimeField,
     pydantic.SecretStr: wtforms.fields.PasswordField,
     pydantic.networks.EmailStr: wtforms.fields.html5.EmailField,
+    Literal: wtforms.fields.SelectField,
 }
 
+
 multiple_converters = {
-    EnumMeta: MultiCheckboxField
+    Enum: MultiCheckboxField
 }
 
 
@@ -90,8 +87,19 @@ class Field:
     multiple: bool
     options: FieldOptions
     required: bool
-    type: Any
-    field_factory: wtforms.fields.Field = None
+    type_: Any
+    choices: Optional[EnumMeta] = None
+    field_factory: Optional[wtforms.fields.Field] = None
+
+    @classmethod
+    def get_canon(self, type_):
+        if pydantic.utils.lenient_issubclass(type_, Enum):
+            return type_, Enum, type_
+        if pydantic.typing.is_literal_type(type_):
+            values = pydantic.typing.all_literal_values(type_)
+            choices = Enum('Choices', {value: value for value in values})
+            return type_, Enum, choices
+        return type_, type_, None
 
     @classmethod
     def from_modelfield(cls, field):
@@ -102,28 +110,23 @@ class Field:
             validators=[FieldValidator(field)],
             filters=[]
         )
-        if field.is_complex():
-            if issubclass(field.outer_type_.__origin__, Iterable):
-                subfield = field.sub_fields[0]
-                return cls(
-                    multiple=True,
-                    options=options,
-                    required=field.required,
-                    type=subfield.type_,
-                    canon=(
-                        EnumMeta if type(subfield.type_) is EnumMeta
-                        else subfield.type_
-                    )
-                )
+
+        if field.is_complex() and issubclass(
+                field.outer_type_.__origin__, Iterable):
+            multiple = True
+            type_, canon, choices = cls.get_canon(
+                field.sub_fields[0].type_)
+        else:
+            multiple = False
+            type_, canon, choices = cls.get_canon(field.outer_type_)
+
         return cls(
-            multiple=False,
+            multiple=multiple,
             options=options,
             required=field.required,
-            type=field.outer_type_,
-            canon=(
-                EnumMeta if type(field.outer_type_) is EnumMeta
-                else field.outer_type_
-            )
+            type_=type_,
+            canon=canon,
+            choices=choices,
         )
 
     def compute_options(self):
@@ -136,8 +139,9 @@ class Field:
             options["validators"].append(
                 wtforms.validators.Optional()
             )
-        if (choice_maker := needs_choices.get(self.canon)) is not None:
-            options['choices'], options['coerce'] = choice_maker(self.type)
+        if self.choices is not None:
+            options['choices'], options['coerce'] = \
+                enum_choices(self.choices)
         return options
 
     def cast(self):

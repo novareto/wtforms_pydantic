@@ -109,10 +109,8 @@ def test_enum_casting():
         foo = 'Foo'
         bar = 'Bar'
 
-
     class Model(pydantic.BaseModel):
         field: MyChoices
-
 
     field = Field.from_modelfield(Model.__fields__['field'])
     factory, options = field.cast()
@@ -129,7 +127,6 @@ def test_multiple_enum_casting():
         foo = 'Foo'
         bar = 'Bar'
 
-
     class Model(pydantic.BaseModel):
         field1: typing.List[MyChoices]
         field2: typing.Set[MyChoices]
@@ -143,3 +140,27 @@ def test_multiple_enum_casting():
         assert options['coerce']('foo')
         with pytest.raises(ValueError):
             assert options['coerce']('test')
+
+
+def test_literal_casting():
+
+    class Model(pydantic.BaseModel):
+        unique: typing.Literal['singleton']
+        multiple: typing.Literal['complex', 'complicated']
+
+    field = Field.from_modelfield(Model.__fields__['unique'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.SelectField
+    assert options['choices'] == [('singleton', 'singleton')]
+    assert options['coerce']('singleton')
+    with pytest.raises(ValueError):
+        assert options['coerce']('other value')
+
+    field = Field.from_modelfield(Model.__fields__['multiple'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.SelectField
+    assert options['choices'] == [
+        ('complex', 'complex'), ('complicated', 'complicated')]
+    assert options['coerce']('complex')
+    with pytest.raises(ValueError):
+        assert options['coerce']('other value')
