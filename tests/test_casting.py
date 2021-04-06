@@ -1,0 +1,145 @@
+"""Tests for `wtforms_pydantic` package.
+"""
+
+import enum
+import datetime
+import hamcrest
+import pytest
+import typing
+import pydantic
+import wtforms.fields
+import wtforms.validators
+from wtforms_pydantic.converter import Field
+from wtforms_pydantic._fields import MultiCheckboxField
+
+
+def test_int_casting():
+
+    class Model(pydantic.BaseModel):
+        field: int
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.IntegerField
+
+
+def test_str_casting():
+
+    class Model(pydantic.BaseModel):
+        field: str
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.StringField
+
+
+def test_float_casting():
+
+    class Model(pydantic.BaseModel):
+        field: float
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.FloatField
+
+
+def test_bool_casting():
+
+    class Model(pydantic.BaseModel):
+        field: bool
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.BooleanField
+
+
+def test_date_casting():
+
+    class Model(pydantic.BaseModel):
+        field: datetime.date
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.html5.DateField
+
+
+def test_datetime_casting():
+
+    class Model(pydantic.BaseModel):
+        field: datetime.datetime
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.html5.DateTimeField
+
+
+def test_time_casting():
+
+    class Model(pydantic.BaseModel):
+        field: datetime.time
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.html5.TimeField
+
+
+def test_password_casting():
+
+    class Model(pydantic.BaseModel):
+        field: pydantic.SecretStr
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.PasswordField
+
+
+def test_email_casting():
+
+    class Model(pydantic.BaseModel):
+        field: pydantic.networks.EmailStr
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.html5.EmailField
+
+
+def test_enum_casting():
+
+    class MyChoices(enum.Enum):
+        foo = 'Foo'
+        bar = 'Bar'
+
+
+    class Model(pydantic.BaseModel):
+        field: MyChoices
+
+
+    field = Field.from_modelfield(Model.__fields__['field'])
+    factory, options = field.cast()
+    assert factory == wtforms.fields.SelectField
+    assert options['choices'] == [('foo', 'Foo'), ('bar', 'Bar')]
+    assert options['coerce']('foo')
+    with pytest.raises(ValueError):
+        assert options['coerce']('test')
+
+
+def test_multiple_enum_casting():
+
+    class MyChoices(enum.Enum):
+        foo = 'Foo'
+        bar = 'Bar'
+
+
+    class Model(pydantic.BaseModel):
+        field1: typing.List[MyChoices]
+        field2: typing.Set[MyChoices]
+        field3: typing.Tuple[MyChoices]
+
+    for fname in ('field1', 'field2', 'field3'):
+        field = Field.from_modelfield(Model.__fields__[fname])
+        factory, options = field.cast()
+        assert factory == MultiCheckboxField
+        assert options['choices'] == [('foo', 'Foo'), ('bar', 'Bar')]
+        assert options['coerce']('foo')
+        with pytest.raises(ValueError):
+            assert options['coerce']('test')

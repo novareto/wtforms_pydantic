@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import Optional, Sequence, Type, Any, Callable, Literal
+from typing import Optional, Iterable, Type, Any, Callable, Literal
 from enum import EnumMeta
 
 import datetime
@@ -30,7 +30,7 @@ def enum_choices(enum):
         except KeyError:
             raise ValueError(name)
 
-    choices = [(v.value, _escape(v.value)) for v in enum]
+    choices = [(v.name, _escape(v.value)) for v in enum]
     return choices, coerce
 
 
@@ -85,7 +85,7 @@ class FieldOptions:
 
 
 @dataclass
-class FormField:
+class Field:
     canon: Any
     multiple: bool
     options: FieldOptions
@@ -103,15 +103,16 @@ class FormField:
             filters=[]
         )
         if field.is_complex():
-            if issubclass(field.outer_type_.__origin__, Sequence):
+            if issubclass(field.outer_type_.__origin__, Iterable):
+                subfield = field.sub_fields[0]
                 return cls(
                     multiple=True,
                     options=options,
                     required=field.required,
-                    type=field.type_,
+                    type=subfield.type_,
                     canon=(
-                        EnumMeta if type(field.type_) is EnumMeta
-                        else field.type_
+                        EnumMeta if type(subfield.type_) is EnumMeta
+                        else subfield.type_
                     )
                 )
         return cls(
@@ -139,7 +140,7 @@ class FormField:
             options['choices'], options['coerce'] = choice_maker(self.type)
         return options
 
-    def wtforms_cast(self):
+    def cast(self):
         factory = self.field_factory
         if factory is None:
             if not self.multiple:
@@ -151,6 +152,10 @@ class FormField:
                     f'{self.type} cannot be converted to a WTForms field')
 
         options = self.compute_options()
+        return factory, options
+
+    def __call__(self):
+        factory, options = self.cast()
         return factory(**options)
 
 
@@ -161,7 +166,7 @@ def model_fields(model, include=None, exclude=None) -> dict:
         exclude = set()
 
     return {
-        name: FormField.from_modelfield(field)
+        name: Field.from_modelfield(field)
         for name, field in model.__fields__.items()
         if name in include and not name in exclude
     }

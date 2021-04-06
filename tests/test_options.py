@@ -4,65 +4,45 @@
 import hamcrest
 import pytest
 import pydantic
-import typing
 import wtforms.fields
 import wtforms.validators
-from wtforms_pydantic.converter import model_fields, FormField, FieldValidator
+from wtforms_pydantic.converter import model_fields, Field, FieldValidator
 
 
-class DummyField:
-    data = None
-
-    def __init__(self, value):
-        self.data = value
-
-
-def factory():
-    return 18
-
-
-class Person(pydantic.BaseModel):
-    identifier: str
-    name: str = "Klaus"
-    age: int = pydantic.Field(default_factory=factory)
-
-    @pydantic.validator('age')
-    def must_be_adult(cls, v):
-        if v < 18:
-            raise ValueError('must be over 18 years old.')
-        return v
-
-
-class UserInfo(pydantic.BaseModel):
-    email: typing.Optional[str]
-
-
-def test_fields():
-    assert model_fields(Person) == {
-        'age': FormField.from_modelfield(
-            Person.__fields__['age']
+def test_fields(person_model):
+    assert model_fields(person_model) == {
+        'age': Field.from_modelfield(
+            person_model.__fields__['age']
         ),
-        'identifier': FormField.from_modelfield(
-            Person.__fields__['identifier']
+        'identifier': Field.from_modelfield(
+            person_model.__fields__['identifier']
         ),
-        'name': FormField.from_modelfield(
-            Person.__fields__['name']
+        'name': Field.from_modelfield(
+            person_model.__fields__['name']
         )
     }
 
 
-def test_validators():
-    age = FormField.from_modelfield(Person.__fields__['age'])
+def test_validators(person_model, dummy_field):
+    age = Field.from_modelfield(person_model.__fields__['age'])
     options = age.compute_options()
+    dummy_field.data = 17
     with pytest.raises(wtforms.validators.ValidationError) as exc:
-        options['validators'][0]({}, DummyField(17))
+        options['validators'][0]({}, dummy_field)
     assert str(exc.value) == 'must be over 18 years old.'
 
 
-def test_field_options():
+def test_no_validators(person_model, dummy_field):
+    name = Field.from_modelfield(person_model.__fields__['name'])
+    options = name.compute_options()
+    dummy_field.data = 'Christian'
+    options['validators'][0]({}, dummy_field)
 
-    options = FormField.from_modelfield(
-        Person.__fields__['name']).compute_options()
+
+def test_field_options(person_model):
+
+    options = Field.from_modelfield(
+        person_model.__fields__['name']).compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': 'Klaus',
             'description': '',
@@ -74,7 +54,7 @@ def test_field_options():
         })
     )
 
-    field = FormField.from_modelfield(Person.__fields__['name'])
+    field = Field.from_modelfield(person_model.__fields__['name'])
     field.required = True
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
@@ -88,7 +68,7 @@ def test_field_options():
         })
     )
 
-    field = FormField.from_modelfield(Person.__fields__['name'])
+    field = Field.from_modelfield(person_model.__fields__['name'])
     field.options.label = "This is a name"
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
@@ -102,7 +82,7 @@ def test_field_options():
         })
     )
 
-    field = FormField.from_modelfield(Person.__fields__['identifier'])
+    field = Field.from_modelfield(person_model.__fields__['identifier'])
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': None,
@@ -116,12 +96,12 @@ def test_field_options():
     )
 
 
-def test_complex_field_options():
+def test_complex_field_options(person_model):
 
-    field = FormField.from_modelfield(Person.__fields__['age'])
+    field = Field.from_modelfield(person_model.__fields__['age'])
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
-            'default': factory,
+            'default': person_model.__fields__['age'].default_factory,
             'description': '',
             'filters': [],
             'validators': hamcrest.contains_exactly(
@@ -132,9 +112,9 @@ def test_complex_field_options():
     )
 
 
-def test_typing_rich_field_options():
+def test_typing_rich_field_options(userinfo_model):
 
-    field = FormField.from_modelfield(UserInfo.__fields__['email'])
+    field = Field.from_modelfield(userinfo_model.__fields__['email'])
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': None,

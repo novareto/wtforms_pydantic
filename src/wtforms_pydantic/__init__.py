@@ -7,18 +7,16 @@ __version__ = '0.1.0'
 
 import pydantic
 import wtforms.form
-from typing import Optional
+from typing import Optional, Iterable
 from wtforms_components import read_only
-from .converter import model_fields
+from .converter import model_fields, Field
 
 
 class Form(wtforms.form.BaseForm):
 
     @classmethod
-    def from_fields(cls, fields):
-        fields = {
-            name: field.wtforms_cast() for name, field in fields.items()
-        }
+    def from_fields(cls, fields: Iterable[Field]):
+        fields = { name: field() for name, field in fields.items() }
         return cls(fields)
 
     @classmethod
