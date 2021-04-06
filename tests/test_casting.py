@@ -164,3 +164,18 @@ def test_literal_casting():
     assert options['coerce']('complex')
     with pytest.raises(ValueError):
         assert options['coerce']('other value')
+
+
+def test_multiple_literal_casting():
+
+    class Model(pydantic.BaseModel):
+        multiple: typing.List[typing.Literal['complex', 'complicated']]
+
+    field = Field.from_modelfield(Model.__fields__['multiple'])
+    factory, options = field.cast()
+    assert factory == MultiCheckboxField
+    assert options['choices'] == [
+        ('complex', 'complex'), ('complicated', 'complicated')]
+    assert options['coerce']('complex')
+    with pytest.raises(ValueError):
+        assert options['coerce']('other value')
