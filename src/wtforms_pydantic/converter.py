@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import Optional, Iterable, Type, Any, Callable, Literal
+from typing import Optional, Iterable, Any, Literal
 from enum import Enum, EnumMeta
 
 import datetime
@@ -103,13 +103,6 @@ class Field:
 
     @classmethod
     def from_modelfield(cls, field):
-        options = FieldOptions(
-            default=field.default or field.field_info.default_factory,
-            description=field.field_info.description or '',
-            label=field.field_info.title or field.name,
-            validators=[FieldValidator(field)],
-            filters=[]
-        )
 
         if field.is_complex() and issubclass(
                 field.outer_type_.__origin__, Iterable):
@@ -122,11 +115,17 @@ class Field:
 
         return cls(
             multiple=multiple,
-            options=options,
             required=field.required,
             type_=type_,
             canon=canon,
             choices=choices,
+            options=FieldOptions(
+                default=field.default or field.field_info.default_factory,
+                description=field.field_info.description or '',
+                label=field.field_info.title or field.name,
+                validators=[FieldValidator(field)],
+                filters=[]
+            )
         )
 
     def compute_options(self):
@@ -172,5 +171,5 @@ def model_fields(model, include=None, exclude=None) -> dict:
     return {
         name: Field.from_modelfield(field)
         for name, field in model.__fields__.items()
-        if name in include and not name in exclude
+        if name in include and name not in exclude
     }

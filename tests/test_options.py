@@ -3,7 +3,6 @@
 
 import hamcrest
 import pytest
-import pydantic
 import wtforms.fields
 import wtforms.validators
 from wtforms_pydantic.converter import model_fields, Field, FieldValidator
