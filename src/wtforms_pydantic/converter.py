@@ -46,7 +46,7 @@ class FieldValidator:
 
     def __call__(self, form, field):
         value, error = self.field.validate(
-            field.data, form, loc=self.field.name)
+            field.data, form.data, loc=self.field.name)
         if error is not None:
             raise wtforms.validators.ValidationError(str(error.exc))
 

@@ -8,6 +8,12 @@ import wtforms.validators
 from wtforms_pydantic.converter import model_fields, Field, FieldValidator
 
 
+class Form:
+
+    def __init__(self, data=None):
+        self.data = data is not None and data or {}
+
+
 def test_fields(person_model):
     assert model_fields(person_model) == {
         'age': Field.from_modelfield(
@@ -27,15 +33,27 @@ def test_validators(person_model, dummy_field):
     options = age.compute_options()
     dummy_field.data = 17
     with pytest.raises(wtforms.validators.ValidationError) as exc:
-        options['validators'][0]({}, dummy_field)
+        options['validators'][0](Form(), dummy_field)
     assert str(exc.value) == 'must be over 18 years old.'
+
+
+def test_cross_validation(person_model, dummy_field):
+    identifier = Field.from_modelfield(
+        person_model.__fields__['identifier'])
+    options = identifier.compute_options()
+    dummy_field.data = 'klaus_kinski'
+    options['validators'][0](Form({'name': 'Klaus'}), dummy_field)
+    with pytest.raises(wtforms.validators.ValidationError) as exc:
+        options['validators'][0](Form({'name': 'Christian'}), dummy_field)
+    assert str(exc.value) == (
+        'The identifier must contain the name in lowercase.')
 
 
 def test_no_validators(person_model, dummy_field):
     name = Field.from_modelfield(person_model.__fields__['name'])
     options = name.compute_options()
     dummy_field.data = 'Christian'
-    options['validators'][0]({}, dummy_field)
+    options['validators'][0](Form(), dummy_field)
 
 
 def test_field_options(person_model):
