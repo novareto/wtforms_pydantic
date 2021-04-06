@@ -34,6 +34,23 @@ def enum_choices(enum):
     return choices, coerce
 
 
+class FieldValidator:
+
+    def __init__(self, field):
+        self.field = field
+
+    def __eq__(self, v):
+        if isinstance(v, FieldValidator):
+            return self.field is v.field
+        return False
+
+    def __call__(self, form, field):
+        value, error = self.field.validate(
+            field.data, form, loc=self.field.name)
+        if error is not None:
+            raise wtforms.validators.ValidationError(str(error.exc))
+
+
 needs_choices = {
     EnumMeta: enum_choices,
     Literal: None  # implement me
@@ -60,51 +77,55 @@ multiple_converters = {
 
 @dataclass
 class FieldOptions:
-    label: str
-    description: str
     default: Any
+    description: str
+    label: str
     validators: list
+    filters: list
 
 
 @dataclass
-class FieldRepresentation:
-    type: Any
+class FormField:
+    canon: Any
     multiple: bool
     options: FieldOptions
     required: bool
+    type: Any
     field_factory: wtforms.fields.Field = None
-    choices_factory: Callable = None
-
-    def matching_key(self):
-        if type(self.type) is EnumMeta:
-            return EnumMeta
-        return self.type
 
     @classmethod
-    def from_modelfield(cls, field, validators=None):
+    def from_modelfield(cls, field):
         options = FieldOptions(
             default=field.default or field.field_info.default_factory,
             description=field.field_info.description or '',
             label=field.field_info.title or field.name,
-            validators=validators or []
+            validators=[FieldValidator(field)],
+            filters=[]
         )
         if field.is_complex():
             if issubclass(field.outer_type_.__origin__, Sequence):
                 return cls(
                     multiple=True,
-                    type=field.type_,
+                    options=options,
                     required=field.required,
-                    options=options
+                    type=field.type_,
+                    canon=(
+                        EnumMeta if type(field.type_) is EnumMeta
+                        else field.type_
+                    )
                 )
         return cls(
             multiple=False,
-            type=field.outer_type_,
+            options=options,
             required=field.required,
-            options=options
+            type=field.outer_type_,
+            canon=(
+                EnumMeta if type(field.outer_type_) is EnumMeta
+                else field.outer_type_
+            )
         )
 
-    def wtforms_cast(self):
-        key = self.matching_key()
+    def compute_options(self):
         options = asdict(self.options)
         if self.required:
             options["validators"].append(
@@ -114,19 +135,22 @@ class FieldRepresentation:
             options["validators"].append(
                 wtforms.validators.Optional()
             )
-        if (choice_maker := needs_choices.get(key)) is not None:
+        if (choice_maker := needs_choices.get(self.canon)) is not None:
             options['choices'], options['coerce'] = choice_maker(self.type)
+        return options
 
+    def wtforms_cast(self):
         factory = self.field_factory
         if factory is None:
             if not self.multiple:
-                factory = simple_converters.get(key)
+                factory = simple_converters.get(self.canon)
             else:
-                factory = multiple_converters.get(key)
+                factory = multiple_converters.get(self.canon)
             if factory is None:
                 raise TypeError(
                     f'{self.type} cannot be converted to a WTForms field')
 
+        options = self.compute_options()
         return factory(**options)
 
 
@@ -137,9 +161,7 @@ def model_fields(model, include=None, exclude=None) -> dict:
         exclude = set()
 
     return {
-        name: FieldRepresentation.from_modelfield(
-            field, validators=model.__validators__.get('name')
-        )
+        name: FormField.from_modelfield(field)
         for name, field in model.__fields__.items()
         if name in include and not name in exclude
     }
