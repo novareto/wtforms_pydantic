@@ -26,8 +26,8 @@ class Form(wtforms.form.BaseForm):
         return cls(fields)
 
     @classmethod
-    def from_model(cls, model: Type[pydantic.BaseModel]):
-        form = cls.from_fields(model_fields(model))
+    def from_model(cls, model: Type[pydantic.BaseModel], **kwargs):
+        form = cls.from_fields(model_fields(model, **kwargs))
         form.model = model
         return form
 
@@ -57,5 +57,5 @@ class Form(wtforms.form.BaseForm):
                 except (ValueError, TypeError, AssertionError) as exc:
                     self.form_errors.append(str(exc))
 
-            return bool(self.form_errors)
+            return not len(self.form_errors)
         return True
