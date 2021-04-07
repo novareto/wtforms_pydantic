@@ -1,7 +1,6 @@
 """Tests for `wtforms_pydantic` package.
 """
 
-import pytest
 from wtforms_pydantic import Form
 
 
