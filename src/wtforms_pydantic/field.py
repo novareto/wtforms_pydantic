@@ -100,8 +100,9 @@ class Field:
     factory: Optional[wtforms.fields.Field] = None
 
     def __init__(self, field: pydantic.fields.ModelField):
-        if field.is_complex() and issubclass(
-                field.outer_type_.__origin__, Iterable):
+        origin = pydantic.typing.get_origin(field.outer_type_)
+        if origin is not None and \
+                pydantic.utils.lenient_issubclass(origin, Iterable):
             self.multiple = True
             self.type_ = field.sub_fields[0].type_
         else:
@@ -139,7 +140,7 @@ class Field:
                 factory = multiple_converters.get(self.canon)
             if factory is None:
                 raise TypeError(
-                    f'{self.type} cannot be converted to a WTForms field')
+                    f'{self.type_} cannot be converted to a WTForms field')
 
         options = self.compute_options()
         return factory, options
