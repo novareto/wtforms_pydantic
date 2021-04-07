@@ -15,42 +15,44 @@ class Form:
 
 
 def test_fields(person_model):
-    assert model_fields(person_model) == {
-        'age': Field.from_modelfield(
-            person_model.__fields__['age']
-        ),
-        'identifier': Field.from_modelfield(
-            person_model.__fields__['identifier']
-        ),
-        'name': Field.from_modelfield(
-            person_model.__fields__['name']
-        )
-    }
+    hamcrest.assert_that(
+        model_fields(person_model), hamcrest.has_entries({
+            'age': hamcrest.instance_of(Field),
+            'identifier': hamcrest.instance_of(Field),
+            'name': hamcrest.instance_of(Field)
+        })
+    )
 
 
 def test_validators(person_model, dummy_field):
-    age = Field.from_modelfield(person_model.__fields__['age'])
+    age = Field(person_model.__fields__['age'])
     options = age.compute_options()
     dummy_field.data = 17
     with pytest.raises(wtforms.validators.ValidationError) as exc:
-        options['validators'][0](Form(), dummy_field)
+        for validator in options['validators']:
+            validator(Form(), dummy_field)
     assert str(exc.value) == 'must be over 18 years old.'
 
 
 def test_cross_validation(person_model, dummy_field):
-    identifier = Field.from_modelfield(
+    identifier = Field(
         person_model.__fields__['identifier'])
     options = identifier.compute_options()
     dummy_field.data = 'klaus_kinski'
-    options['validators'][0](Form({'name': 'Klaus'}), dummy_field)
+
+    for validator in options['validators']:
+        validator(Form({'name': 'Klaus'}), dummy_field)
+
     with pytest.raises(wtforms.validators.ValidationError) as exc:
-        options['validators'][0](Form({'name': 'Christian'}), dummy_field)
+        for validator in options['validators']:
+            validator(Form({'name': 'Christian'}), dummy_field)
+
     assert str(exc.value) == (
         'The identifier must contain the name in lowercase.')
 
 
 def test_no_validators(person_model, dummy_field):
-    name = Field.from_modelfield(person_model.__fields__['name'])
+    name = Field(person_model.__fields__['name'])
     options = name.compute_options()
     dummy_field.data = 'Christian'
     options['validators'][0](Form(), dummy_field)
@@ -58,56 +60,56 @@ def test_no_validators(person_model, dummy_field):
 
 def test_field_options(person_model):
 
-    options = Field.from_modelfield(
+    options = Field(
         person_model.__fields__['name']).compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': 'Klaus',
             'description': '',
-            'filters': [],
             'validators': hamcrest.contains_exactly(
-                hamcrest.instance_of(FieldValidator),
-                hamcrest.instance_of(wtforms.validators.Optional)),
+                hamcrest.instance_of(wtforms.validators.Optional),
+                hamcrest.instance_of(FieldValidator)
+            ),
             'label': 'name'
         })
     )
 
-    field = Field.from_modelfield(person_model.__fields__['name'])
+    field = Field(person_model.__fields__['name'])
     field.required = True
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': 'Klaus',
             'description': '',
-            'filters': [],
             'validators': hamcrest.contains_exactly(
-                hamcrest.instance_of(FieldValidator),
-                hamcrest.instance_of(wtforms.validators.DataRequired)),
+                hamcrest.instance_of(wtforms.validators.DataRequired),
+                hamcrest.instance_of(FieldValidator)
+            ),
             'label': 'name'
         })
     )
 
-    field = Field.from_modelfield(person_model.__fields__['name'])
-    field.options.label = "This is a name"
+    field = Field(person_model.__fields__['name'])
+    field.metadata['label'] = "This is a name"
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': 'Klaus',
             'description': '',
-            'filters': [],
             'validators': hamcrest.contains_exactly(
+                hamcrest.instance_of(wtforms.validators.Optional),
                 hamcrest.instance_of(FieldValidator),
-                hamcrest.instance_of(wtforms.validators.Optional)),
+            ),
             'label': 'This is a name'
         })
     )
 
-    field = Field.from_modelfield(person_model.__fields__['identifier'])
+    field = Field(person_model.__fields__['identifier'])
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': None,
             'description': '',
-            'filters': [],
             'validators': hamcrest.contains_exactly(
-                hamcrest.instance_of(FieldValidator),
-                hamcrest.instance_of(wtforms.validators.DataRequired)),
+                hamcrest.instance_of(wtforms.validators.DataRequired),
+                hamcrest.instance_of(FieldValidator)
+            ),
             'label': 'identifier'
         })
     )
@@ -115,15 +117,15 @@ def test_field_options(person_model):
 
 def test_complex_field_options(person_model):
 
-    field = Field.from_modelfield(person_model.__fields__['age'])
+    field = Field(person_model.__fields__['age'])
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': person_model.__fields__['age'].default_factory,
             'description': '',
-            'filters': [],
             'validators': hamcrest.contains_exactly(
-                hamcrest.instance_of(FieldValidator),
-                hamcrest.instance_of(wtforms.validators.Optional)),
+                hamcrest.instance_of(wtforms.validators.Optional),
+                hamcrest.instance_of(FieldValidator)
+            ),
             'label': 'age'
         })
     )
@@ -131,15 +133,14 @@ def test_complex_field_options(person_model):
 
 def test_typing_rich_field_options(userinfo_model):
 
-    field = Field.from_modelfield(userinfo_model.__fields__['email'])
+    field = Field(userinfo_model.__fields__['email'])
     options = field.compute_options()
     hamcrest.assert_that(options, hamcrest.has_entries({
             'default': None,
             'description': '',
-            'filters': [],
             'validators': hamcrest.contains_exactly(
-                hamcrest.instance_of(FieldValidator),
-                hamcrest.instance_of(wtforms.validators.Optional)
+                hamcrest.instance_of(wtforms.validators.Optional),
+                hamcrest.instance_of(FieldValidator)
             ),
             'label': 'email'
         })

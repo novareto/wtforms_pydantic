@@ -6,6 +6,10 @@ import typing
 class DummyField:
     data = None
 
+    @property
+    def raw_data(self):
+        return [self.data]
+
 
 class DummyForm:
     data = None

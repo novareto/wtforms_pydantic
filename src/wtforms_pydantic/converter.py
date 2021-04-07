@@ -1,5 +1,4 @@
-from dataclasses import dataclass, asdict
-from typing import Optional, Iterable, Any, Literal
+from typing import Optional, Iterable, Any, Literal, TypedDict
 from enum import Enum, EnumMeta
 
 import datetime
@@ -47,6 +46,7 @@ class FieldValidator:
     def __call__(self, form, field):
         value, error = self.field.validate(
             field.data, form.data, loc=self.field.name)
+
         if error is not None:
             raise wtforms.validators.ValidationError(str(error.exc))
 
@@ -72,79 +72,65 @@ multiple_converters = {
 }
 
 
-@dataclass
-class FieldOptions:
+def field_type_decomposer(type_):
+    if pydantic.utils.lenient_issubclass(type_, Enum):
+        return Enum, type_
+    if pydantic.typing.is_literal_type(type_):
+        values = pydantic.typing.all_literal_values(type_)
+        choices = Enum('Choices', {value: value for value in values})
+        return Enum, choices
+    return type_, None
+
+
+class Metadata(TypedDict):
     default: Any
     description: str
     label: str
-    validators: list
-    filters: list
 
 
-@dataclass
 class Field:
+    type_: Any
     canon: Any
     multiple: bool
-    options: FieldOptions
+    metadata: Metadata
     required: bool
-    type_: Any
+    validator: FieldValidator
     choices: Optional[EnumMeta] = None
-    field_factory: Optional[wtforms.fields.Field] = None
+    factory: Optional[wtforms.fields.Field] = None
 
-    @classmethod
-    def get_canon(self, type_):
-        if pydantic.utils.lenient_issubclass(type_, Enum):
-            return type_, Enum, type_
-        if pydantic.typing.is_literal_type(type_):
-            values = pydantic.typing.all_literal_values(type_)
-            choices = Enum('Choices', {value: value for value in values})
-            return type_, Enum, choices
-        return type_, type_, None
-
-    @classmethod
-    def from_modelfield(cls, field):
-
+    def __init__(self, field: pydantic.fields.ModelField):
         if field.is_complex() and issubclass(
                 field.outer_type_.__origin__, Iterable):
-            multiple = True
-            type_, canon, choices = cls.get_canon(
-                field.sub_fields[0].type_)
+            self.multiple = True
+            self.type_ = field.sub_fields[0].type_
         else:
-            multiple = False
-            type_, canon, choices = cls.get_canon(field.outer_type_)
+            self.multiple = False
+            self.type_ = field.outer_type_
 
-        return cls(
-            multiple=multiple,
-            required=field.required,
-            type_=type_,
-            canon=canon,
-            choices=choices,
-            options=FieldOptions(
-                default=field.default or field.field_info.default_factory,
-                description=field.field_info.description or '',
-                label=field.field_info.title or field.name,
-                validators=[FieldValidator(field)],
-                filters=[]
-            )
-        )
+        self.validator = FieldValidator(field)
+        self.canon, self.choices = field_type_decomposer(self.type_)
+        self.required = field.required
+        self.metadata = {
+            'default': field.default or field.field_info.default_factory,
+            'description': field.field_info.description or '',
+            'label': field.field_info.title or field.name,
+        }
 
     def compute_options(self):
-        options = asdict(self.options)
+        options = {}
         if self.required:
-            options["validators"].append(
-                wtforms.validators.DataRequired()
-            )
+            options['validators'] = (
+                wtforms.validators.DataRequired(), self.validator)
         else:
-            options["validators"].append(
-                wtforms.validators.Optional()
-            )
+            options['validators'] = (
+                wtforms.validators.Optional(), self.validator)
         if self.choices is not None:
             options['choices'], options['coerce'] = \
                 enum_choices(self.choices)
-        return options
+        return {**self.metadata, **options}
 
     def cast(self):
-        factory = self.field_factory
+        factory = self.factory
         if factory is None:
             if not self.multiple:
                 factory = simple_converters.get(self.canon)
@@ -169,7 +155,6 @@ def model_fields(model, include=None, exclude=None) -> dict:
         exclude = set()
 
     return {
-        name: Field.from_modelfield(field)
-        for name, field in model.__fields__.items()
+        name: Field(field) for name, field in model.__fields__.items()
         if name in include and name not in exclude
     }
