@@ -146,15 +146,3 @@ class Field:
     def __call__(self):
         factory, options = self.cast()
         return factory(**options)
-
-
-def model_fields(model, include=None, exclude=None) -> dict:
-    if not include:
-        include = frozenset(model.__fields__.keys())
-    if not exclude:
-        exclude = set()
-
-    return {
-        name: Field(field) for name, field in model.__fields__.items()
-        if name in include and name not in exclude
-    }
