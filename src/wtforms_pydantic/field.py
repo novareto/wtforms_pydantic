@@ -95,6 +95,7 @@ class Field:
     metadata: Metadata
     required: bool
     validator: FieldValidator
+    readonly: bool = False
     choices: Optional[EnumMeta] = None
     factory: Optional[wtforms.fields.Field] = None
 

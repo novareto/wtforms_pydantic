@@ -8,7 +8,7 @@ import typing
 import pydantic
 import wtforms.fields
 import wtforms.validators
-from wtforms_pydantic.converter import Field
+from wtforms_pydantic.field import Field
 from wtforms_pydantic._fields import MultiCheckboxField
 
 

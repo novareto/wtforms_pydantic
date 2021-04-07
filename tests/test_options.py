@@ -5,7 +5,8 @@ import hamcrest
 import pytest
 import wtforms.fields
 import wtforms.validators
-from wtforms_pydantic.converter import model_fields, Field, FieldValidator
+from wtforms_pydantic import model_fields
+from wtforms_pydantic.field import Field, FieldValidator
 
 
 class Form:
