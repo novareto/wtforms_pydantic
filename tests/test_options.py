@@ -18,9 +18,9 @@ class Form:
 def test_fields(person_model):
     hamcrest.assert_that(
         model_fields(person_model), hamcrest.has_entries({
-            'age': hamcrest.instance_of(Field),
-            'identifier': hamcrest.instance_of(Field),
-            'name': hamcrest.instance_of(Field)
+            'age': person_model.__fields__['age'],
+            'identifier': person_model.__fields__['identifier'],
+            'name': person_model.__fields__['name']
         })
     )
 
