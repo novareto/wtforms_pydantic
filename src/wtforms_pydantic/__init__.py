@@ -18,7 +18,7 @@ def model_fields(model, include=None, exclude=None) -> dict:
         exclude = set()
 
     return {
-        name: field for name, field in model.__fields__.items()
+        name: Field(field) for name, field in model.__fields__.items()
         if name in include and name not in exclude
     }
 
@@ -32,7 +32,7 @@ class Form(wtforms.form.BaseForm):
 
     @classmethod
     def from_fields(cls, fields: Iterable[Field]):
-        fields = {name: Field(field)() for name, field in fields.items()}
+        fields = {name: field() for name, field in fields.items()}
         return cls(fields)
 
     @classmethod
