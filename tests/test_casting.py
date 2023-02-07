@@ -59,7 +59,7 @@ def test_date_casting():
 
     field = Field(Model.__fields__['field'])
     factory, options = field.cast()
-    assert factory == wtforms.fields.html5.DateField
+    assert factory == wtforms.fields.DateField
 
 
 def test_datetime_casting():
@@ -69,7 +69,7 @@ def test_datetime_casting():
 
     field = Field(Model.__fields__['field'])
     factory, options = field.cast()
-    assert factory == wtforms.fields.html5.DateTimeField
+    assert factory == wtforms.fields.DateTimeField
 
 
 def test_time_casting():
@@ -79,7 +79,7 @@ def test_time_casting():
 
     field = Field(Model.__fields__['field'])
     factory, options = field.cast()
-    assert factory == wtforms.fields.html5.TimeField
+    assert factory == wtforms.fields.TimeField
 
 
 def test_password_casting():
@@ -99,7 +99,7 @@ def test_email_casting():
 
     field = Field(Model.__fields__['field'])
     factory, options = field.cast()
-    assert factory == wtforms.fields.html5.EmailField
+    assert factory == wtforms.fields.EmailField
 
 
 def test_enum_casting():

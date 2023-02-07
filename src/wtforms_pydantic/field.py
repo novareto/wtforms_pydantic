@@ -5,7 +5,6 @@ import datetime
 import decimal
 import pydantic
 import wtforms.fields
-import wtforms.fields.html5
 import wtforms.validators
 from xml.sax.saxutils import escape
 from wtforms_pydantic._fields import MultiCheckboxField
@@ -58,11 +57,11 @@ simple_converters = {
     bool: wtforms.fields.BooleanField,
     Enum: wtforms.fields.SelectField,
     decimal.Decimal: wtforms.fields.DecimalField,
-    datetime.date: wtforms.fields.html5.DateField,
-    datetime.datetime: wtforms.fields.html5.DateTimeField,
-    datetime.time: wtforms.fields.html5.TimeField,
+    datetime.date: wtforms.fields.DateField,
+    datetime.datetime: wtforms.fields.DateTimeField,
+    datetime.time: wtforms.fields.TimeField,
     pydantic.SecretStr: wtforms.fields.PasswordField,
-    pydantic.networks.EmailStr: wtforms.fields.html5.EmailField,
+    pydantic.networks.EmailStr: wtforms.fields.EmailField,
     Literal: wtforms.fields.SelectField,
 }
 

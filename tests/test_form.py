@@ -16,5 +16,5 @@ def test_fields(person_model):
 
     form.process(data={'age': 18, 'identifier': 'admin', 'name': 'Admin'})
     form.validate()
-    assert form.errors == {}
+    assert form.errors == {None: ['You must be over 21 to be an admin.']}
     assert form.form_errors == ['You must be over 21 to be an admin.']
